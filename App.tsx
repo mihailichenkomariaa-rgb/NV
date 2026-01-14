@@ -56,6 +56,9 @@ const App: React.FC = () => {
   const [negotiationArgument, setNegotiationArgument] = useState('');
   const [negotiationResult, setNegotiationResult] = useState<NegotiationResult | null>(null);
 
+  // Global UI State
+  const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
+
   // PERSISTENCE: Save game state whenever it changes
   useEffect(() => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
@@ -575,7 +578,7 @@ const App: React.FC = () => {
     return (
       <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
         {/* Compact Header */}
-        <header className="bg-white/90 backdrop-blur border-b border-gray-200 px-3 py-2 pt-safe z-50 flex-shrink-0">
+        <header className="bg-white/90 backdrop-blur border-b border-gray-200 px-3 py-2 pt-safe z-50 flex-shrink-0 pr-12">
           <div className="flex justify-between items-center h-10">
             <div className="px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 text-[10px] text-gray-600 font-bold uppercase tracking-wider">
                Р {Math.floor(gameState.currentRoundTypeIndex) + 1}
@@ -673,6 +676,47 @@ const App: React.FC = () => {
             relative flex flex-col transition-all duration-300
         `}>
             {getActiveComponent()}
+
+            {/* Global Restart Button - Visible on all screens except Welcome */}
+            {gameState.gameStatus !== 'WELCOME' && (
+                <div 
+                    className="absolute top-0 right-0 p-3 pt-safe z-[60]"
+                    style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 0.75rem))' }}
+                >
+                    <button 
+                        onClick={() => setIsRestartModalOpen(true)}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 backdrop-blur text-gray-400 border border-gray-200 hover:text-red-500 hover:border-red-200 shadow-sm transition-all hover:shadow-md"
+                        title="Начать заново"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                    </button>
+                </div>
+            )}
+
+            {/* Restart Confirmation Modal */}
+            {isRestartModalOpen && (
+                <div className="absolute inset-0 z-[70] bg-black/20 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+                    <div className="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full border border-gray-100 transform scale-100 transition-all">
+                        <div className="flex justify-center mb-4">
+                            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-500 text-2xl">
+                                ↺
+                            </div>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2 text-center">Начать заново?</h3>
+                        <p className="text-gray-500 text-sm mb-6 text-center">Текущая игра будет сброшена, и весь прогресс потерян.</p>
+                        <div className="flex gap-3">
+                            <Button variant="secondary" onClick={() => setIsRestartModalOpen(false)} className="flex-1">
+                                Отмена
+                            </Button>
+                            <Button variant="danger" onClick={handleNewGame} className="flex-1">
+                                Да, сбросить
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     </div>
   );
