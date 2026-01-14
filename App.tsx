@@ -61,17 +61,18 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
   }, [gameState]);
 
-  // SMART PRELOADING:
+  // SMART PRELOADING: Recover tasks if missing during gameplay
   useEffect(() => {
       if (gameState.gameStatus === 'PLAYING' || gameState.gameStatus === 'TURN_START' || gameState.gameStatus === 'ROUND_INTRO') {
           const currentRoundIdx = gameState.currentRoundTypeIndex;
           
           // 1. Recovery: Ensure CURRENT round tasks exist
+          let needsLoad = false;
           for (let i = 0; i < gameState.teams.length; i++) {
                const currentKey = `${currentRoundIdx}-${i}`;
                if (!taskPromises[currentKey]) {
-                   preloadTasksForRound(currentRoundIdx, gameState.teams.length, gameState.settings, gameState.usedContent);
-                   break; 
+                   needsLoad = true;
+                   break;
                }
           }
 
@@ -79,24 +80,26 @@ const App: React.FC = () => {
           const nextRoundIdx = currentRoundIdx + 1;
           if (nextRoundIdx < ROUND_ORDER_DEFAULT.length) {
               const nextKeyCheck = `${nextRoundIdx}-0`;
-              // Only load if not exists
               if (!taskPromises[nextKeyCheck]) {
-                  // CRITICAL: If next round is the FINAL round (Index 4, ImageGuess), 
-                  // we should ideally wait until we have some used content from Round 0 (ImageGuess).
-                  // But standard lookahead handles +1. 
-                  // The manual trigger below handles the specific skip-ahead logic.
-                  preloadTasksForRound(nextRoundIdx, gameState.teams.length, gameState.settings, gameState.usedContent);
+                  needsLoad = true;
               }
           }
-
-          // 3. SPECIAL: Trigger Round 4 (Final/Image) ONLY after Round 0 is finished (Round 1 starts).
-          // This ensures Round 4 knows about Round 0's words via `usedContent`.
-          if (currentRoundIdx === 1) { // We just finished Round 0 and are now in Round 1
+          
+          // 3. SPECIAL: Trigger Final Round (4) after Round 0 finishes
+          if (currentRoundIdx === 1) { 
                const finalRoundIdx = 4;
                const finalKeyCheck = `${finalRoundIdx}-0`;
                if (!taskPromises[finalKeyCheck]) {
-                   console.log("🔄 Round 0 finished. Preloading Final Round (4) with updated exclusion list...");
-                   preloadTasksForRound(finalRoundIdx, gameState.teams.length, gameState.settings, gameState.usedContent);
+                   console.log("🔄 Round 0 finished. Preloading Final Round (4)...");
+                   preloadSpecificRound(finalRoundIdx, gameState.teams.length, gameState.settings, gameState.usedContent);
+               }
+          }
+
+          if (needsLoad) {
+               // Trigger generic preload for current + next
+               preloadSpecificRound(currentRoundIdx, gameState.teams.length, gameState.settings, gameState.usedContent);
+               if (nextRoundIdx < ROUND_ORDER_DEFAULT.length) {
+                   preloadSpecificRound(nextRoundIdx, gameState.teams.length, gameState.settings, gameState.usedContent);
                }
           }
       }
@@ -131,44 +134,64 @@ const App: React.FC = () => {
     }));
   };
 
-  const preloadTasksForRound = (roundIndex: number, teamCount: number, settings: GameSettings, usedContent: string[]) => {
-    const roundType = ROUND_ORDER_DEFAULT[roundIndex];
-    if (!roundType) return;
+  // --- PRELOADING LOGIC ---
 
-    const newPromises: Record<string, Promise<any>> = {};
-    let hasNew = false;
-
-    for (let teamIdx = 0; teamIdx < teamCount; teamIdx++) {
-        const key = `${roundIndex}-${teamIdx}`;
-        if (taskPromises[key]) continue;
-
-        hasNew = true;
-        let taskSettings = { ...settings };
-        if (settings.themes.length > 0) {
-            const themeIndex = (teamIdx + roundIndex) % settings.themes.length;
-            taskSettings = { 
-                ...settings, 
-                themes: [settings.themes[themeIndex]] 
-            };
-        }
-        newPromises[key] = generateTaskForRound(roundType, taskSettings, usedContent);
-    }
-
-    if (hasNew) {
-        setTaskPromises(prev => ({ ...prev, ...newPromises }));
-    }
+  const preloadSpecificRound = (roundIndex: number, teamCount: number, settings: GameSettings, usedContent: string[]) => {
+      const roundType = ROUND_ORDER_DEFAULT[roundIndex];
+      if (!roundType) return;
+      
+      const newPromises: Record<string, Promise<any>> = {};
+      let hasNew = false;
+  
+      for (let teamIdx = 0; teamIdx < teamCount; teamIdx++) {
+          const key = `${roundIndex}-${teamIdx}`;
+          if (taskPromises[key]) continue;
+  
+          hasNew = true;
+          let taskSettings = { ...settings };
+          if (settings.themes.length > 0) {
+              const themeIndex = (teamIdx + roundIndex) % settings.themes.length;
+              taskSettings = { ...settings, themes: [settings.themes[themeIndex]] };
+          }
+          newPromises[key] = generateTaskForRound(roundType, taskSettings, usedContent);
+      }
+  
+      if (hasNew) {
+          setTaskPromises(prev => ({ ...prev, ...newPromises }));
+      }
   };
 
   const handlePreloadStart = (count: number, settings: GameSettings) => {
-      console.log(`🚀 Starting preload for ${count} teams...`);
-      preloadTasksForRound(0, count, settings, []);
-      preloadTasksForRound(1, count, settings, []);
-      preloadTasksForRound(2, count, settings, []);
-      preloadTasksForRound(3, count, settings, []);
+      console.log(`🚀 BATCH PRELOAD: Generating tasks for ${count} teams...`);
+      
+      const newPromises: Record<string, Promise<any>> = {};
+      const roundsToPreload = [0, 1, 2, 3]; // Preload first 4 rounds immediately
+
+      roundsToPreload.forEach(roundIdx => {
+          const roundType = ROUND_ORDER_DEFAULT[roundIdx];
+          for (let teamIdx = 0; teamIdx < count; teamIdx++) {
+              const key = `${roundIdx}-${teamIdx}`;
+              
+              // Only generate if not already exists (and not in current local batch)
+              if (!taskPromises[key] && !newPromises[key]) {
+                   let taskSettings = { ...settings };
+                   if (settings.themes.length > 0) {
+                       const themeIndex = (teamIdx + roundIdx) % settings.themes.length;
+                       taskSettings = { ...settings, themes: [settings.themes[themeIndex]] };
+                   }
+                   // We pass empty usedContent during initial preload
+                   newPromises[key] = generateTaskForRound(roundType, taskSettings, []);
+              }
+          }
+      });
+
+      if (Object.keys(newPromises).length > 0) {
+          console.log(`✅ Queued ${Object.keys(newPromises).length} tasks.`);
+          setTaskPromises(prev => ({ ...prev, ...newPromises }));
+      }
   };
 
   const handleStartGame = (settings: GameSettings, teams: Team[]) => {
-    // Removed API Key check here. We trust the Service to handle it or fail gracefully later.
     setGameState(prev => ({ 
       ...prev, 
       settings, 

@@ -41,10 +41,6 @@ const Onboarding: React.FC<Props> = ({ onStart, onPreloadStart, onBack }) => {
               if (data.selectedThemes) setSelectedThemes(data.selectedThemes);
               if (data.teams && data.teams.length > 0) setTeams(data.teams);
               if (data.teamCount) setTeamCount(data.teamCount);
-              // Note: we don't restore 'step' to allow user to flow naturally, 
-              // or we could restore it if we wanted strict return.
-              // For "Back" button functionality, state is preserved in memory mostly, 
-              // but this handles refresh.
           }
       } catch (e) {
           console.error("Failed to load onboarding draft");
@@ -69,6 +65,16 @@ const Onboarding: React.FC<Props> = ({ onStart, onPreloadStart, onBack }) => {
     );
   };
 
+  const handleStep1Next = () => {
+    // AGGRESSIVE PRELOADING START
+    // Assume minimum 2 teams to start generation immediately while user configures teams
+    // If they pick 3 or 4 later, we trigger again, but R1-R2 for first 2 teams will already be fetching.
+    const settings: GameSettings = { difficulty, averageAge: age, themes: selectedThemes, ttsEnabled };
+    onPreloadStart(Math.max(teamCount, 2), settings);
+    
+    setStep(2);
+  };
+
   const handleTeamCountSelect = (count: number) => {
     if (selectedThemes.length === 0) {
        alert("Выберите хотя бы одну тему!");
@@ -87,6 +93,7 @@ const Onboarding: React.FC<Props> = ({ onStart, onPreloadStart, onBack }) => {
     
     setEditingTeamIndex(0);
 
+    // Trigger preload again with exact count (idempotent for existing promises)
     const settings: GameSettings = { difficulty, averageAge: age, themes: selectedThemes, ttsEnabled };
     onPreloadStart(count, settings);
 
@@ -242,7 +249,7 @@ const Onboarding: React.FC<Props> = ({ onStart, onPreloadStart, onBack }) => {
          </div>
 
          <div className="p-4 bg-white border-t border-gray-100 z-10">
-             <Button onClick={() => setStep(2)} className="w-full py-3 text-lg">
+             <Button onClick={handleStep1Next} className="w-full py-3 text-lg">
                 Далее
              </Button>
          </div>
