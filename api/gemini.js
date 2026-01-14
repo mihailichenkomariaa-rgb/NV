@@ -1,5 +1,5 @@
 
-const { GoogleGenAI, Type } = require("@google/genai");
+const { GoogleGenAI } = require("@google/genai");
 
 // Helper: Clean JSON response
 const cleanAndParseJSON = (text) => {
@@ -7,6 +7,7 @@ const cleanAndParseJSON = (text) => {
     try {
         return JSON.parse(text);
     } catch (e) {
+        // Fallback for Markdown blocks
         let clean = text.replace(/```json/g, '').replace(/```/g, '');
         const firstOpen = clean.indexOf('{');
         const lastClose = clean.lastIndexOf('}');
@@ -24,6 +25,7 @@ const cleanAndParseJSON = (text) => {
 
 module.exports = async (req, res) => {
     // 1. Setup Client with Server-Side Key
+    // Vercel securely injects process.env.API_KEY on the server side
     const apiKey = process.env.API_KEY || process.env.VITE_API_KEY;
     if (!apiKey) {
         return res.status(500).json({ error: "Server misconfiguration: API_KEY missing" });
