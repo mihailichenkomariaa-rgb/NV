@@ -3,10 +3,14 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ExplanationResult, ImageTaskData, SongTaskData, PromptBattleData, PromptBattleResult, Difficulty, RoundType, GameSettings, NegotiationResult } from "../types";
 
 const getAIClient = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("API Key is missing. Please set the API_KEY environment variable.");
+  // Try to get key from Vite env (standard) or process.env (legacy/fallback)
+  // @ts-ignore
+  const apiKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) || process.env.API_KEY;
+
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please set VITE_API_KEY in Vercel settings.");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey });
 };
 
 // --- UNIVERSAL THEME ENFORCEMENT ---

@@ -17,7 +17,8 @@ import PromptBattleRound from './components/rounds/PromptBattleRound';
 const STORAGE_KEY = 'neurovoki_gamestate_v2';
 
 const App: React.FC = () => {
-  const [apiKey, setApiKey] = useState(process.env.API_KEY || '');
+  // @ts-ignore
+  const [apiKey, setApiKey] = useState((typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) || process.env.API_KEY || '');
   
   // Initialize state from LocalStorage if available
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -175,7 +176,7 @@ const App: React.FC = () => {
 
   const handleStartGame = (settings: GameSettings, teams: Team[]) => {
     if (!apiKey) {
-      alert("Необходим API Key через process.env.API_KEY");
+      alert("Необходим API Key. Пожалуйста, добавьте VITE_API_KEY в настройках Vercel.");
       return;
     }
     
