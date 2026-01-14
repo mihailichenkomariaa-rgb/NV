@@ -17,9 +17,6 @@ import PromptBattleRound from './components/rounds/PromptBattleRound';
 const STORAGE_KEY = 'neurovoki_gamestate_v2';
 
 const App: React.FC = () => {
-  // @ts-ignore
-  const [apiKey, setApiKey] = useState((typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) || process.env.API_KEY || '');
-  
   // Initialize state from LocalStorage if available
   const [gameState, setGameState] = useState<GameState>(() => {
       try {
@@ -72,7 +69,7 @@ const App: React.FC = () => {
           // 1. Recovery: Ensure CURRENT round tasks exist
           for (let i = 0; i < gameState.teams.length; i++) {
                const currentKey = `${currentRoundIdx}-${i}`;
-               if (!taskPromises[currentKey] && apiKey) {
+               if (!taskPromises[currentKey]) {
                    preloadTasksForRound(currentRoundIdx, gameState.teams.length, gameState.settings, gameState.usedContent);
                    break; 
                }
@@ -83,7 +80,7 @@ const App: React.FC = () => {
           if (nextRoundIdx < ROUND_ORDER_DEFAULT.length) {
               const nextKeyCheck = `${nextRoundIdx}-0`;
               // Only load if not exists
-              if (!taskPromises[nextKeyCheck] && apiKey) {
+              if (!taskPromises[nextKeyCheck]) {
                   // CRITICAL: If next round is the FINAL round (Index 4, ImageGuess), 
                   // we should ideally wait until we have some used content from Round 0 (ImageGuess).
                   // But standard lookahead handles +1. 
@@ -97,13 +94,13 @@ const App: React.FC = () => {
           if (currentRoundIdx === 1) { // We just finished Round 0 and are now in Round 1
                const finalRoundIdx = 4;
                const finalKeyCheck = `${finalRoundIdx}-0`;
-               if (!taskPromises[finalKeyCheck] && apiKey) {
+               if (!taskPromises[finalKeyCheck]) {
                    console.log("🔄 Round 0 finished. Preloading Final Round (4) with updated exclusion list...");
                    preloadTasksForRound(finalRoundIdx, gameState.teams.length, gameState.settings, gameState.usedContent);
                }
           }
       }
-  }, [gameState.currentRoundTypeIndex, gameState.gameStatus, gameState.usedContent, apiKey, retryCount]);
+  }, [gameState.currentRoundTypeIndex, gameState.gameStatus, gameState.usedContent, retryCount]);
 
 
   const currentRoundType = ROUND_ORDER_DEFAULT[gameState.currentRoundTypeIndex];
@@ -164,10 +161,6 @@ const App: React.FC = () => {
 
   const handlePreloadStart = (count: number, settings: GameSettings) => {
       console.log(`🚀 Starting preload for ${count} teams...`);
-      if (!apiKey) {
-          console.warn("API Key missing during preload");
-          return;
-      }
       preloadTasksForRound(0, count, settings, []);
       preloadTasksForRound(1, count, settings, []);
       preloadTasksForRound(2, count, settings, []);
@@ -175,11 +168,7 @@ const App: React.FC = () => {
   };
 
   const handleStartGame = (settings: GameSettings, teams: Team[]) => {
-    if (!apiKey) {
-      alert("Необходим API Key. Пожалуйста, добавьте VITE_API_KEY в настройках Vercel.");
-      return;
-    }
-    
+    // Removed API Key check here. We trust the Service to handle it or fail gracefully later.
     setGameState(prev => ({ 
       ...prev, 
       settings, 

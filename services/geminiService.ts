@@ -1,14 +1,24 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ExplanationResult, ImageTaskData, SongTaskData, PromptBattleData, PromptBattleResult, Difficulty, RoundType, GameSettings, NegotiationResult } from "../types";
 
 const getAIClient = () => {
-  // Try to get key from Vite env (standard) or process.env (legacy/fallback)
-  // @ts-ignore
-  const apiKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) || process.env.API_KEY;
+  // Comprehensive check for keys in various environments (Vite, Next, Standard)
+  let apiKey = '';
+  
+  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+    apiKey = process.env.API_KEY;
+  }
+
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      apiKey = (import.meta as any).env.VITE_API_KEY || (import.meta as any).env.NEXT_PUBLIC_API_KEY || (import.meta as any).env.API_KEY || '';
+  }
+  
+  if (!apiKey && typeof process !== 'undefined' && process.env) {
+      apiKey = process.env.VITE_API_KEY || process.env.REACT_APP_API_KEY || process.env.API_KEY || '';
+  }
 
   if (!apiKey) {
-    throw new Error("API Key is missing. Please set VITE_API_KEY in Vercel settings.");
+    throw new Error("API Key is missing. Please ensure VITE_API_KEY is set in your Vercel Environment Variables.");
   }
   return new GoogleGenAI({ apiKey });
 };
