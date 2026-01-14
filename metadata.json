@@ -1,0 +1,7 @@
+{
+  "name": "NeuroVoki",
+  "description": "ИИ-игра для вечеринок, где команды соревнуются с Gemini в разгадывании картинок, песен и логических загадок.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
