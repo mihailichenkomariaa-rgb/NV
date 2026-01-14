@@ -122,7 +122,8 @@ export const generateImageTask = async (age: number, difficulty: Difficulty, use
   const imageResponse = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
     contents: { parts: [{ text: prompt }] },
-    config: { imageConfig: { aspectRatio: '1:1' } }
+    // TypeScript workaround: imageConfig is valid for image models but missing in strict types
+    config: { imageConfig: { aspectRatio: '1:1' } } as any 
   });
 
   let base64Data: string | undefined;
@@ -249,7 +250,8 @@ export const generatePromptBattleTask = async (age: number, difficulty: Difficul
   const imageResponse = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
     contents: { parts: [{ text: prompt }] },
-    config: { imageConfig: { aspectRatio: '1:1' } }
+    // TypeScript workaround: imageConfig is valid for image models but missing in strict types
+    config: { imageConfig: { aspectRatio: '1:1' } } as any
   });
 
   let base64Data: string | undefined;
@@ -276,7 +278,8 @@ export const evaluatePromptBattle = async (targetImageUrl: string, userPrompt: s
     const imageResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [{ text: userPrompt }] },
-        config: { imageConfig: { aspectRatio: '1:1' } }
+        // TypeScript workaround: imageConfig is valid for image models but missing in strict types
+        config: { imageConfig: { aspectRatio: '1:1' } } as any
     });
 
     let userBase64: string | undefined;
