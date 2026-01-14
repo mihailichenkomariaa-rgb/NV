@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { ExplanationResult, ImageTaskData, SongTaskData, PromptBattleData, PromptBattleResult, Difficulty, RoundType, GameSettings, NegotiationResult } from "../types";
 
@@ -21,6 +22,34 @@ const getAIClient = () => {
     throw new Error("API Key is missing. Please ensure VITE_API_KEY is set in your Vercel Environment Variables.");
   }
   return new GoogleGenAI({ apiKey });
+};
+
+// Helper: Extract JSON from potentially chatty response
+const cleanAndParseJSON = (text: string | undefined): any => {
+    if (!text) return {};
+    try {
+        // 1. Try direct parse first (fastest)
+        return JSON.parse(text);
+    } catch (e) {
+        // 2. Remove Markdown code blocks if present
+        let clean = text.replace(/```json/g, '').replace(/```/g, '');
+        
+        // 3. Find the first '{' and last '}' to strip preamble/postscript
+        const firstOpen = clean.indexOf('{');
+        const lastClose = clean.lastIndexOf('}');
+        
+        if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+            clean = clean.substring(firstOpen, lastClose + 1);
+            try {
+                return JSON.parse(clean);
+            } catch (e2) {
+                console.error("Failed to parse extracted JSON block:", clean);
+            }
+        }
+        
+        console.error("Failed to parse JSON response completely:", text);
+        return {};
+    }
 };
 
 // --- UNIVERSAL THEME ENFORCEMENT ---
@@ -85,10 +114,6 @@ export const generateImageTask = async (age: number, difficulty: Difficulty, use
   const ai = getAIClient();
   const context = getContextPrompt(age, difficulty, usedContent, themes);
 
-  const stylePrompt = difficulty === Difficulty.HARD 
-    ? "Сделай изображение СЮРРЕАЛИСТИЧНЫМ, но чтобы ключевые элементы темы были узнаваемы." 
-    : "Сделай изображение БУКВАЛЬНОЙ иллюстрацией фразы. Яркое, четкое, без текста.";
-
   // Step 1: Brainstorm a phrase fitting the theme
   const brainResponse = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -102,7 +127,7 @@ export const generateImageTask = async (age: number, difficulty: Difficulty, use
       - Тема "Еда" -> "Каша в голове" (ОК), "Голодные игры" (НЕТ, это кино).
       - Тема "IT" -> "Синий экран смерти" (ОК).
       
-      Верни JSON:
+      ВЕРНИ ТОЛЬКО JSON. NO EXTRA TEXT.
       {
           "target": "Сама фраза/название",
           "visual_prompt": "Промпт для генерации картинки на английском. Опиши БУКВАЛЬНОЕ изображение метафоры. High quality, 8k render.",
@@ -111,18 +136,10 @@ export const generateImageTask = async (age: number, difficulty: Difficulty, use
     `,
     config: {
       responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          target: { type: Type.STRING },
-          visual_prompt: { type: Type.STRING },
-          hint: { type: Type.STRING },
-        },
-      },
     },
   });
 
-  const brainData = JSON.parse(brainResponse.text || "{}");
+  const brainData = cleanAndParseJSON(brainResponse.text);
   const target = brainData.target || "Ошибка генерации";
   const prompt = brainData.visual_prompt || "Error prompt";
   const hint = brainData.hint || "Подсказка недоступна";
@@ -157,7 +174,6 @@ export const generateImageTask = async (age: number, difficulty: Difficulty, use
 
 export const generateSongTask = async (age: number, difficulty: Difficulty, usedContent: string[], themes: string[]): Promise<SongTaskData> => {
   const ai = getAIClient();
-  // Select a random theme from the active themes to color the bureaucracy
   const theme = themes.length > 0 ? themes[Math.floor(Math.random() * themes.length)] : "Бюрократия";
   const exclusion = usedContent.length > 0 ? `ЗАПРЕЩЕНО ИСПОЛЬЗОВАТЬ: ${usedContent.join(", ")}.` : "";
   const randomFactor = `Seed: ${Math.random()}`;
@@ -171,27 +187,18 @@ export const generateSongTask = async (age: number, difficulty: Difficulty, used
       
       ЗАДАЧА №1: ВЫБОР ПЕСНИ (ОБЩЕИЗВЕСТНАЯ)
       Выбери СУПЕР-ПОПУЛЯРНЫЙ русскоязычный хит (попса, рок, детская, народная).
-      ВАЖНО: Песня НЕ обязательно должна быть по теме "${theme}". Бери "Миллион алых роз", "Батарейка", "Рюмка водки", "В лесу родилась елочка".
-
+      
       ЗАДАЧА №2: ПЕРЕПИСАТЬ ТЕКСТ (ТЕРМИНЫ ТЕМЫ + КАНЦЕЛЯРИТ)
       Перепиши припев песни, используя:
       1. ПРОФЕССИОНАЛЬНУЮ ЛЕКСИКУ из темы "${theme}".
       2. СТИЛЬ: "Полицейский протокол / Акт приемки / Научная статья".
       
-      ПРИМЕРЫ:
-      - Тема "Медицина" + Песня "Миллион алых роз".
-        Результат: "Субъект произвел отчуждение недвижимости с целью закупки 10^6 биологических образцов семейства Розовые..."
-      - Тема "IT" + Песня "В лесу родилась елочка".
-        Результат: "В корневой директории 'Лес' был инициализирован объект 'Хвойное'. Процесс роста в зимний период выполнен корректно."
-      - Тема "Гарри Поттер" + Песня "Я свободен".
-        Результат: "Узник Азкабана получил официальное помилование Министерства Магии и забыл заклинание страха..."
-      
       КРИТИЧЕСКИ ВАЖНО:
       - МАКСИМУМ 25 СЛОВ. Текст должен быть очень коротким!
       - Никаких рифм.
       - Максимально душно.
-
-      ВЕРНИ JSON:
+      
+      ВЕРНИ ТОЛЬКО JSON. БЕЗ ВСТУПЛЕНИЙ.
       {
         "targetSong": "Исполнитель - Название",
         "rewrittenLyrics": "Текст (короткий, до 25 слов)",
@@ -201,19 +208,10 @@ export const generateSongTask = async (age: number, difficulty: Difficulty, used
     `,
     config: {
       responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          targetSong: { type: Type.STRING },
-          rewrittenLyrics: { type: Type.STRING },
-          hint: { type: Type.STRING },
-          styleUsed: { type: Type.STRING },
-        },
-      },
     },
   });
 
-  const data = JSON.parse(response.text || "{}");
+  const data = cleanAndParseJSON(response.text);
   return {
     targetSong: data.targetSong || "Неизвестная песня",
     rewrittenLyrics: data.rewrittenLyrics || "Данные засекречены.",
@@ -239,10 +237,7 @@ export const getSecretWord = async (age: number, difficulty: Difficulty, usedCon
         ЗАДАЧА: Назови одно слово или короткую фразу (существительное), которое игроки должны будут тебе объяснить.
         Слово должно быть КЛЮЧЕВЫМ для темы "${themes.join(", ")}".
         
-        Пример: Тема "Гарри Поттер" -> "Волшебная палочка" (или "Снич", "Метла"). Не "Стол".
-        ${typePrompt}
-        
-        Верни ТОЛЬКО слово/фразу. Без кавычек.
+        Верни ТОЛЬКО слово/фразу. Без кавычек, без точек.
     `,
   });
   return response.text?.trim() || "Ошибка";
@@ -258,22 +253,20 @@ export const evaluateExplanation = async (targetWord: string, userExplanation: s
       Объяснение пользователя: "${userExplanation}".
       
       Твоя задача: Попытаться угадать слово ТОЛЬКО по объяснению пользователя.
-      НЕ подглядывай в секретное слово, будь честным игроком.
-      Если объяснение плохое или неточное, назови другое слово, которое подходит под описание.
       
-      Верни JSON: 
+      ВЕРНИ ТОЛЬКО JSON.
       { 
           "isCorrect": boolean (угадал ли ты именно загаданное слово), 
           "aiGuess": string (твоя догадка), 
           "points": number (0-10, насколько хорошо объяснили), 
           "reasoning": string (почему ты так решил), 
           "definition": string (краткое определение секретного слова для справки) 
-      }.
+      }
     `,
     config: { responseMimeType: "application/json" },
   });
 
-  const data = JSON.parse(response.text || "{}");
+  const data = cleanAndParseJSON(response.text);
   return {
     isCorrect: data.isCorrect ?? false,
     aiGuess: data.aiGuess || "Не понял",
@@ -290,7 +283,6 @@ export const generatePromptBattleTask = async (age: number, difficulty: Difficul
   const ai = getAIClient();
   const themeString = themes.join(", ");
   
-  // 1. Brainstorm visual concept strictly within theme
   const brainResponse = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `
@@ -298,15 +290,13 @@ export const generatePromptBattleTask = async (age: number, difficulty: Difficul
         Придумай описание для картинки, которая ИДЕАЛЬНО отражает эту тему.
         Это должно быть что-то забавное, эпичное или странное, но СТРОГО В РАМКАХ ТЕМЫ.
         
-        Пример ГП: "Волдеморт танцует диско в Хогвартсе".
-        Пример Космос: "Кот в скафандре играет на гитаре на Луне".
-        
-        Верни JSON: { prompt: string (english visual prompt), keywords: string[] (russian key objects) }
+        ВЕРНИ ТОЛЬКО JSON.
+        { "prompt": "english visual prompt", "keywords": ["russian key object 1"] }
         Random seed: ${Math.random()}`,
     config: { responseMimeType: "application/json" }
   });
   
-  const brainData = JSON.parse(brainResponse.text || "{}");
+  const brainData = cleanAndParseJSON(brainResponse.text);
   const prompt = brainData.prompt || "A futuristic cyberpunk cat in neon city";
   const keywords = brainData.keywords || ["Киберпанк", "Неон"];
 
@@ -366,13 +356,13 @@ export const evaluatePromptBattle = async (targetImageUrl: string, userPrompt: s
             parts: [
                 { inlineData: { mimeType: 'image/png', data: targetBase64 } },
                 { inlineData: { mimeType: 'image/png', data: userBase64 } },
-                { text: "Сравни изображения. Оцени визуальное сходство (0-100). Насколько пользователь смог воспроизвести сюжет оригинала своим промптом? Верни JSON: { score: number, feedback: string }." }
+                { text: "Сравни изображения. Оцени визуальное сходство (0-100). Верни ТОЛЬКО JSON: { score: number, feedback: string }." }
             ]
         },
         config: { responseMimeType: "application/json" }
     });
 
-    const result = JSON.parse(compareResponse.text || "{}");
+    const result = cleanAndParseJSON(compareResponse.text);
 
     return {
         userImageUrl,
@@ -391,27 +381,18 @@ export const judgeAnswer = async (correctAnswer: string, userAnswer: string): Pr
             Ответ пользователя: "${userAnswer}".
             
             Оцени точность по шкале 0-10.
-            Учитывай опечатки, синонимы и смысловое сходство.
             10 - Идеально.
-            8-9 - Почти идеально (мелкая опечатка).
-            5-7 - Смысл передан верно, но другими словами.
             0-4 - Неверно.
             
-            Верни JSON: { score: number, feedback: string }
+            ВЕРНИ ТОЛЬКО JSON.
+            { "score": number, "feedback": "Short comment" }
         `,
         config: {
             responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    score: { type: Type.NUMBER },
-                    feedback: { type: Type.STRING }
-                }
-            }
         }
     });
 
-    const result = JSON.parse(response.text || "{}");
+    const result = cleanAndParseJSON(response.text);
     return {
         score: result.score || 0,
         feedback: result.feedback || "..."
@@ -424,23 +405,19 @@ export const evaluateNegotiation = async (target: string, userAnswer: string, ar
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `
-            Ты - ИИ-Судья в игре.
-            Задание было: "${target}".
-            Игрок ответил: "${userAnswer}".
-            Ему не засчитали (или дали мало баллов).
+            Ты - ИИ-Судья.
+            Задание: "${target}".
+            Ответ: "${userAnswer}".
+            Аргумент: "${argument}".
+            Макс. добавить: ${maxAddablePoints}.
             
-            Его аргумент: "${argument}".
-            Макс. можно добавить баллов: ${maxAddablePoints}.
-            
-            Если аргумент смешной, дерзкий или логичный (даже если ответ технически неверный, но креативный) — дай баллы.
-            Если игрок просто ноет — не давай.
-            
-            Верни JSON: { approved: boolean, pointsAwarded: number, reply: string (короткий едкий или похвальный ответ) }
+            ВЕРНИ ТОЛЬКО JSON.
+            { "approved": boolean, "pointsAwarded": number, "reply": "Short verdict" }
         `,
         config: { responseMimeType: "application/json" }
     });
     
-    const result = JSON.parse(response.text || "{}");
+    const result = cleanAndParseJSON(response.text);
     return {
         approved: result.approved || false,
         pointsAwarded: Math.min(result.pointsAwarded || 0, maxAddablePoints),
