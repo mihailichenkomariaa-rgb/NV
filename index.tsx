@@ -1,3 +1,13 @@
+
+// Safe polyfill for process.env to prevent "ReferenceError: process is not defined" in some browser builds
+try {
+  if (typeof process === 'undefined') {
+    (window as any).process = { env: {} };
+  }
+} catch (e) {
+  // ignore errors
+}
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
