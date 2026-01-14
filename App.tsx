@@ -58,40 +58,6 @@ const App: React.FC = () => {
   const [negotiationArgument, setNegotiationArgument] = useState('');
   const [negotiationResult, setNegotiationResult] = useState<NegotiationResult | null>(null);
 
-  // Initialize Telegram Mini App
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      
-      try {
-        tg.expand();
-      } catch(e) {
-        console.warn('TG Expand failed', e);
-      }
-      
-      // Feature detection based on version
-      // disableVerticalSwipes is available in v7.7+
-      if (tg.isVersionAtLeast && tg.isVersionAtLeast('7.7')) {
-          try {
-            tg.disableVerticalSwipes();
-          } catch (e) {
-            console.warn('TG Vertical swipes disable failed', e);
-          }
-      }
-
-      // Colors are available in v6.1+
-      if (tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
-        try {
-          tg.setHeaderColor('#f9fafb'); 
-          tg.setBackgroundColor('#f9fafb');
-        } catch (e) {
-          console.warn('TG Styling not applied', e);
-        }
-      }
-    }
-  }, []);
-
   // PERSISTENCE: Save game state whenever it changes
   useEffect(() => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
@@ -201,12 +167,6 @@ const App: React.FC = () => {
           console.warn("API Key missing during preload");
           return;
       }
-      // IMMEDIATE PRELOAD: Rounds 0, 1, 2, 3 are distinct types or safe to load.
-      // Round 0: Image
-      // Round 1: Songs
-      // Round 2: Explain
-      // Round 3: Battle
-      // Round 4: Image (Wait for R0 to finish!)
       preloadTasksForRound(0, count, settings, []);
       preloadTasksForRound(1, count, settings, []);
       preloadTasksForRound(2, count, settings, []);
@@ -231,33 +191,25 @@ const App: React.FC = () => {
   };
 
   const handleRetryRound = () => {
-    // 1. Identify the current key
     const currentKey = `${gameState.currentRoundTypeIndex}-${gameState.currentTeamIndex}`;
-    
-    // 2. Remove the existing promise
     setTaskPromises(prev => {
         const next = { ...prev };
         delete next[currentKey];
         return next;
     });
-
-    // 3. Trigger useEffect to reload
     setRetryCount(prev => prev + 1);
   };
 
-  // Called after Round Intro is understood
   const handleRoundIntroDone = () => {
      setGameState(prev => ({ ...prev, gameStatus: 'TURN_START' }));
   };
 
-  // Called after Turn Start (Player Ready) is clicked
   const handleTurnReady = () => {
     setGameState(prev => ({ ...prev, gameStatus: 'PLAYING' }));
   };
 
   const handleRoundComplete = (points: number, message: string, contentId: string | undefined, context: RoundContext) => {
     setPointsJustEarned(points);
-    // Simple heuristic: check if message has a "Значение:" part for display separation
     const definitionMatch = message.match(/Значение:\s*(.*)/s);
     const cleanMessage = message.replace(/Значение:.*$/s, '').trim();
     const definition = definitionMatch ? definitionMatch[1] : undefined;
@@ -293,8 +245,6 @@ const App: React.FC = () => {
       gameStatus: 'ROUND_RESULT',
       usedContent: newUsedContent
     }));
-
-    // Removed automatic TTS trigger here. User must click manually.
   };
 
   const handleNegotiationSubmit = async () => {
@@ -355,10 +305,6 @@ const App: React.FC = () => {
         nextTeamIndex = 0;
         nextRoundTypeIndex = prev.currentRoundTypeIndex + 1;
         isNewRoundType = true;
-        
-        if (nextRoundTypeIndex < ROUND_ORDER_DEFAULT.length) {
-             // Lookahead preload logic handled by useEffect now
-        }
       }
 
       if (nextRoundTypeIndex >= ROUND_ORDER_DEFAULT.length) {

@@ -1,39 +1,4 @@
 
-// Add Telegram WebApp types
-declare global {
-  interface Window {
-    Telegram: {
-      WebApp: {
-        ready: () => void;
-        expand: () => void;
-        close: () => void;
-        setHeaderColor: (color: string) => void;
-        setBackgroundColor: (color: string) => void;
-        MainButton: {
-          text: string;
-          color: string;
-          textColor: string;
-          isVisible: boolean;
-          isActive: boolean;
-          show: () => void;
-          hide: () => void;
-          onClick: (callback: () => void) => void;
-          offClick: (callback: () => void) => void;
-          showProgress: (leaveActive: boolean) => void;
-          hideProgress: () => void;
-        };
-        initDataUnsafe: any;
-        colorScheme: 'light' | 'dark';
-        viewportHeight: number;
-        viewportStableHeight: number;
-        disableVerticalSwipes: () => void;
-        isVersionAtLeast: (version: string) => boolean;
-        version: string;
-      };
-    };
-  }
-}
-
 export enum Difficulty {
   EASY = 'EASY',
   MEDIUM = 'MEDIUM',

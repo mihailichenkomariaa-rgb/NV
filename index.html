@@ -1,37 +1,29 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <title>NeuroVoki</title>
+    <title>NeuroVoki — ИИ игра для вечеринок</title>
+    <meta name="description" content="Соревнуйтесь с ИИ в разгадывании картинок, песен и объяснении слов.">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
       
-      :root {
-        --tg-theme-bg-color: #f9fafb;
-        --tg-theme-text-color: #111827;
-      }
-
       body {
         font-family: 'Space Grotesk', sans-serif;
-        background-color: var(--tg-theme-bg-color);
-        color: var(--tg-theme-text-color);
-        height: 100dvh; /* Dynamic Viewport Height */
+        background-color: #f3f4f6; /* Default light gray */
+        color: #111827;
+        height: 100dvh;
         width: 100vw;
-        overflow: hidden; /* Prevent global scroll */
-        overscroll-behavior: none; /* Prevent rubber-banding */
+        overflow: hidden;
+        overscroll-behavior: none;
       }
 
       /* Desktop Background Pattern */
-      @media (min-width: 768px) {
-        body {
-          background-color: #f3f4f6;
-          background-image: radial-gradient(#d1d5db 1px, transparent 1px);
-          background-size: 24px 24px;
-        }
+      body {
+        background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+        background-size: 24px 24px;
       }
 
       #root {
